@@ -138,6 +138,7 @@ contract Stake {
   }
 
   function lockedStake() external {
+    require(!locked, "Staking is locked");
     require(msg.sender == owner, "Only owner can locked stake");
     totalTokenLocked = stakingToken.balanceOf(address(this));
     bool success = stakingToken.transfer(owner, totalTokenLocked);
@@ -146,6 +147,7 @@ contract Stake {
     emit lockedStaking(owner, totalTokenLocked);
   }
   function unLockedStake() external {
+    require(locked, "Staking is unlocked");
     require(msg.sender == owner, "Only owner can unlocked stake");
     bool success = stakingToken.transferFrom(owner, address(this), totalTokenLocked);
     require(success, "unLocked fail!");
