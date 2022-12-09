@@ -8,7 +8,7 @@ error TransferFailed();
 error NeedsMoreThanZero();
 contract Stake {
   IERC20 public stakingToken;
-  uint256 countId;
+  uint256 public countId;
   address public owner;
   bool private locked;
   uint256 public totalTokenLocked;
@@ -37,13 +37,14 @@ contract Stake {
   event unLockedStaking(address _owner,uint256 amount);
 
   function getEndDate(uint256 _apy) private view returns (uint256) {
-    if (_apy == 3) {
-      return block.timestamp + 24 * 60 * 60 * 30;
-    } 
+    uint256 endDate = block.timestamp + 24 * 60 * 60 * 30;
     if (_apy == 10) {
-      return block.timestamp + 24 * 60 * 60 * 30 * 3;
+      endDate = block.timestamp + 24 * 60 * 60 * 30 * 3;
+    } 
+    if (_apy == 50) {
+      endDate = block.timestamp + 24 * 60 * 60 * 30 * 9;
     }
-    return block.timestamp + 24 * 60 * 60 * 30 * 9;
+    return endDate;
   }
   function getToken(address _address) external view returns(uint256) {
     return stakingToken.balanceOf(_address);
@@ -102,19 +103,15 @@ contract Stake {
       return reward;
   }
   function getDayWithApy(uint256 _apy) external pure returns (uint256) {
-      uint256 day;
-      if (_apy == 3) {
-        day = 30;
-      } else if (_apy == 10) {
+      uint256 day = 30;
+      if (_apy == 10) {
         day = 30 * 3;
-      } else {
+      } else if (_apy == 50) {
         day = 30 * 9;
       }
       return day;
   }
-  function getIdNow() external view returns(uint256) {
-    return countId;
-  }
+
   function getStakerId(address _staker) external view returns(uint256[] memory) {
     return contractStakerWithId[_staker];
   }
@@ -132,9 +129,6 @@ contract Stake {
       staker.endDay
     );
     return reward;
-  }
-  function getTimeOfContract() external view returns(uint256) {
-    return block.timestamp;
   }
 
   function lockedStake() external {
