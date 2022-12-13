@@ -18,11 +18,10 @@ contract('Staking', async function(accounts){
     return (await web3.eth.getBlock((await web3.eth.getBlockNumber())))["timestamp"];
   }
 
-  it("staking", async () => {
+  it("staking transfer", async () => {
     const LTDToken = await DungToken.deployed();
     const staker = await Staking.deployed(LTDToken.address);
     const stakingToken = await staker.stakingToken.call();
-    let apy = 10;
     const stakeToken = await DungToken.at(stakingToken);
     
     let defaultAmount = web3.utils.toWei((10**8).toString());
@@ -34,34 +33,90 @@ contract('Staking', async function(accounts){
     await stakeToken.approve(accounts[1], defaultAmountForAccount1, defaultOptions);
     await stakeToken.transfer(accounts[1], defaultAmountForAccount1, defaultOptions);
 
+    const tokenOfAccount1 = await staker.getToken(accounts[1]);
+    assert.equal(Number(tokenOfAccount1),defaultAmountForAccount1, "400000000000000000000") 
+  });
+  it("Staking Locked", async () => {
+    const LTDToken = await DungToken.deployed();
+    const staker = await Staking.deployed(LTDToken.address);
+
     const owner = await staker.owner.call();
-    let depositAmount = web3.utils.toWei("200");
+    let isLocked = await staker.locked.call();
+    assert.equal(isLocked,false, "Staking app unlocked")
 
-    const lockedStaking = await staker.lockedStake({from: owner});
-    console.log('Locked', lockedStaking)
-
-    const unLockedStaking = await staker.unLockedStake({from: owner});
-    console.log('Unlocked', unLockedStaking);
+    await staker.lockedStake({from: owner});
+    isLocked = await staker.locked.call();
+    assert.equal(isLocked,true, "Staking app is locked")
     
-    await stakeToken.approve(staker.address, depositAmount, accountsOptions1);
-    const deposit = await staker.deposit(depositAmount, apy, accountsOptions1);
-    console.log('deposit', deposit.logs[0]);
-
+  });
+  it("Change block.timestamp", async () => {
     let startingTime = await getTime();
-    console.log('time',startingTime)
     let secsToAdvance = 60*60*24*50;
     await timeMachine.advanceTimeAndBlock(secsToAdvance);
     let nowtime = await getTime();
-    console.log('time',nowtime);
+    assert.equal(startingTime + secsToAdvance,nowtime, "Change block.timestamp 50 days")
+  });
+  it("Deposit token", async () => {
+    const LTDToken = await DungToken.deployed();
+    const staker = await Staking.deployed(LTDToken.address);
+    const stakingToken = await staker.stakingToken.call();
+    const stakeToken = await DungToken.at(stakingToken);
+    
+    let defaultAmount = web3.utils.toWei((10**8).toString());
+    await stakeToken.approve(staker.address, defaultAmount, defaultOptions);
+    await stakeToken.transfer(staker.address, defaultAmount, defaultOptions);
 
-    const contract = await staker.getStakerFromId(accounts[1], 0);
-    console.log('contract', contract);
 
-    const rewardNow = await staker.getRewardOfStakerWithId(accounts[1], 0);
-    console.log('reward', Number(rewardNow));
+    let defaultAmountForAccount1 = web3.utils.toWei("400");
+    await stakeToken.approve(accounts[1], defaultAmountForAccount1, defaultOptions);
+    await stakeToken.transfer(accounts[1], defaultAmountForAccount1, defaultOptions);
+
+    let apy = 10;
+    let depositAmount = web3.utils.toWei("200");
+    await stakeToken.approve(staker.address, depositAmount, accountsOptions1);
+    await staker.deposit(depositAmount, apy, accountsOptions1);
+    const stakerIds = await staker.getStakerId(accounts[1]);
+    const stakerOfAccount1 = await staker.getStakerFromId(accounts[1] ,Number(stakerIds[0]));
+    let startingTime = await getTime();
+    let secsToAdvance = 60*60*24*30*3;
+    await timeMachine.advanceTimeAndBlock(secsToAdvance);
+    let endTime = await getTime();
+    assert.equal(stakerOfAccount1.id,0, "Staking id: 0");
+    assert.equal(stakerOfAccount1.apy,10, "Staking apy: 10");
+    assert.equal(stakerOfAccount1.startDay,startingTime, "Staking startDay is the current day");
+    assert.equal(stakerOfAccount1.endDay,endTime, "Staking endDay is the current ngayfplus 3 months");
+    assert.equal(stakerOfAccount1.amount,depositAmount, "Staking amount: 200000000000000000000");
+    
+  });
+  it("withdraw token", async () => {
+    const LTDToken = await DungToken.deployed();
+    const staker = await Staking.deployed(LTDToken.address);
+    const stakingToken = await staker.stakingToken.call();
+    const stakeToken = await DungToken.at(stakingToken);
+    
+    let defaultAmount = web3.utils.toWei((10**8).toString());
+    await stakeToken.approve(staker.address, defaultAmount, defaultOptions);
+    await stakeToken.transfer(staker.address, defaultAmount, defaultOptions);
+
+
+    let defaultAmountForAccount1 = web3.utils.toWei("400");
+    await stakeToken.approve(accounts[1], defaultAmountForAccount1, defaultOptions);
+    await stakeToken.transfer(accounts[1], defaultAmountForAccount1, defaultOptions);
+
+    let apy = 10;
+    let depositAmount = web3.utils.toWei("200");
+    await stakeToken.approve(staker.address, depositAmount, accountsOptions1);
+    await staker.deposit(depositAmount, apy, accountsOptions1);
+
+    let secsToAdvance = 60*60*24*30*3;
+    await timeMachine.advanceTimeAndBlock(secsToAdvance);
+
+
+    const reward = await staker.getRewardOfStakerWithId(accounts[1], 0);
 
     const withdraw = await staker.withdraw(0,accountsOptions1);
-    console.log('draw', withdraw.logs[0]);
-    
-  })
+    const res = withdraw.logs[0].args;
+    assert.equal(res.to, accounts[1], "Staking account withdraw");
+    assert.equal(Number(res.amount), Number(reward) + Number(depositAmount), "Staking token that the account receives");
+  });
 })

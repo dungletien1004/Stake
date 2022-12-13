@@ -10,7 +10,7 @@ contract Stake {
   IERC20 public stakingToken;
   uint256 public countId;
   address public owner;
-  bool private locked;
+  bool public locked;
   uint256 public totalTokenLocked;
   constructor(address _stakingToken) {
     stakingToken = IERC20(_stakingToken);
